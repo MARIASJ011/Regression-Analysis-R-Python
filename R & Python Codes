@@ -1,0 +1,182 @@
+# =========================
+# Part A: NSSO Regression (Haryana)
+# =========================
+
+# Load required libraries
+library(car)
+
+# Load data
+data <- read.csv("data/NSSO68.csv")
+
+# Filter for Haryana
+hr_data <- subset(data, state_1 == "HR")
+
+# Select relevant columns
+subset_data <- hr_data[, c(
+  "foodtotal_q", "MPCE_MRP", "MPCE_URP", "Age",
+  "Meals_At_Home", "Possess_ration_card", "Education", "No_of_Meals_per_day"
+)]
+
+# Impute missing values using column means
+subset_data$MPCE_MRP[is.na(subset_data$MPCE_MRP)] <- mean(subset_data$MPCE_MRP, na.rm = TRUE)
+subset_data$MPCE_URP[is.na(subset_data$MPCE_URP)] <- mean(subset_data$MPCE_URP, na.rm = TRUE)
+subset_data$Age[is.na(subset_data$Age)] <- mean(subset_data$Age, na.rm = TRUE)
+subset_data$Meals_At_Home[is.na(subset_data$Meals_At_Home)] <- mean(subset_data$Meals_At_Home, na.rm = TRUE)
+subset_data$Possess_ration_card[is.na(subset_data$Possess_ration_card)] <- mean(subset_data$Possess_ration_card, na.rm = TRUE)
+subset_data$Education[is.na(subset_data$Education)] <- mean(subset_data$Education, na.rm = TRUE)
+
+# Fit linear regression model
+model_nsso <- lm(
+  foodtotal_q ~ MPCE_MRP + Age + Meals_At_Home + Possess_ration_card + Education,
+  data = subset_data
+)
+
+summary(model_nsso)
+
+# VIF for multicollinearity
+vif(model_nsso)
+
+# Diagnostic plots
+par(mfrow = c(2, 2))
+plot(model_nsso)
+
+
+# =========================
+# Part B: IPL Salary vs Performance (Shivam Dube)
+# =========================
+
+library(dplyr)
+library(readxl)
+library(ggplot2)
+
+# Load datasets
+ball_by_ball <- read.csv("data/IPL_ball_by_ball_2008_2024.csv", stringsAsFactors = FALSE)
+salaries <- read_excel("data/IPL_SALARIES_2024.xlsx")
+
+# Filter ball-by-ball data for Shivam Dube (2022–2024)
+dube_perf <- ball_by_ball %>%
+  filter(Striker == "S Dube", Season %in% c(2022, 2023, 2024))
+
+# Aggregate performance by season
+dube_stats <- dube_perf %>%
+  group_by(Season) %>%
+  summarise(
+    Runs = sum(runs_scored, na.rm = TRUE),
+    Matches = n_distinct(`Match id`)
+  )
+
+# Known salary (₹ lakhs) — example values used in assignment
+dube_salary <- data.frame(
+  Season = c(2022, 2023, 2024),
+  Salary_Rs = c(400, 400, 400)
+)
+
+# Merge
+dube_combined <- left_join(dube_stats, dube_salary, by = "Season")
+
+# Regression model
+model_ipl <- lm(Salary_Rs ~ Runs + Matches, data = dube_combined)
+summary(model_ipl)
+
+# Predict salary
+dube_combined$Predicted_Salary <- predict(model_ipl)
+
+# Plot Actual vs Predicted Salary
+ggplot(dube_combined, aes(x = Season)) +
+  geom_line(aes(y = Salary_Rs, color = "Actual"), linewidth = 1.2) +
+  geom_point(aes(y = Salary_Rs, color = "Actual"), size = 3) +
+  geom_line(aes(y = Predicted_Salary, color = "Predicted"), linewidth = 1.2, linetype = "dashed") +
+  geom_point(aes(y = Predicted_Salary, color = "Predicted"), size = 3, shape = 17) +
+  labs(
+    title = "Shivam Dube: Actual vs Predicted Salary (₹ Lakhs)",
+    x = "IPL Season",
+    y = "Salary (₹ Lakhs)",
+    color = "Legend"
+  ) +
+  theme_minimal()
+
+
+# =========================
+# Part A: NSSO Regression (Haryana) - Python
+# =========================
+
+import pandas as pd
+import statsmodels.api as sm
+
+# Load data
+df = pd.read_csv("data/NSSO68.csv", low_memory=False)
+
+# Filter for Haryana
+df = df[df["state_1"] == "HR"]
+
+# Select relevant features
+cols = ["foodtotal_q", "MPCE_MRP", "Age", "Meals_At_Home", "Possess_ration_card", "Education"]
+data = df[cols].copy()
+
+# Mean imputation
+for col in cols:
+    data[col] = data[col].fillna(data[col].mean())
+
+# Regression
+X = sm.add_constant(data[["MPCE_MRP", "Age", "Meals_At_Home", "Possess_ration_card", "Education"]])
+y = data["foodtotal_q"]
+
+model = sm.OLS(y, X).fit()
+print(model.summary())
+
+
+# =========================
+# Part B: IPL Salary vs Performance (Shivam Dube) - Python
+# =========================
+
+import pandas as pd
+import statsmodels.api as sm
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Load datasets
+ball_by_ball = pd.read_csv("data/IPL_ball_by_ball_2008_2024.csv", low_memory=False)
+salaries = pd.read_excel("data/IPL_SALARIES_2024.xlsx")
+
+# Filter for Shivam Dube (2021–2024)
+dube_perf = ball_by_ball[
+    (ball_by_ball["Striker"] == "S Dube") &
+    (ball_by_ball["Season"].isin([2021, 2022, 2023, 2024]))
+]
+
+# Aggregate performance stats
+dube_stats = (
+    dube_perf.groupby("Season")
+    .agg(Runs=("runs_scored", "sum"), Matches=("Match.id", "nunique"))
+    .reset_index()
+)
+
+# Salary data used in assignment (₹ lakhs)
+dube_salary = pd.DataFrame({
+    "Season": [2021, 2022, 2023, 2024],
+    "Salary_Rs": [440, 400, 400, 400]
+})
+
+# Merge
+dube_combined = pd.merge(dube_stats, dube_salary, on="Season")
+
+# Regression model
+X = sm.add_constant(dube_combined[["Runs", "Matches"]])
+y = dube_combined["Salary_Rs"]
+
+model = sm.OLS(y, X).fit()
+print(model.summary())
+
+# Predict
+dube_combined["Predicted_Salary"] = model.predict(X)
+
+# Plot
+plt.figure(figsize=(10, 6))
+sns.lineplot(data=dube_combined, x="Season", y="Salary_Rs", marker="o", label="Actual")
+sns.lineplot(data=dube_combined, x="Season", y="Predicted_Salary", marker="s", linestyle="--", label="Predicted")
+plt.title("Shivam Dube: Actual vs Predicted IPL Salary (₹ Lakhs)")
+plt.xlabel("IPL Season")
+plt.ylabel("Salary (₹ Lakhs)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
